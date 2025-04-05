@@ -1,0 +1,130 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite" // Use SQLite for rapid development
+  url      = "file:./dev.db"
+}
+
+// AI Incidents Repository
+model Incident {
+  id                String   @id @default(cuid())
+  title             String
+  description       String
+  date              DateTime
+  region            String
+  country           String?
+  severity          String   // "Low", "Medium", "High", "Critical"
+  aiSystemType      String
+  status            String   // "Ongoing", "Resolved", "Under Investigation"
+  impactDescription String?
+  sourceUrl         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  contributingFactors ContributingFactor[]
+  timeline           TimelineEvent[]
+}
+
+model ContributingFactor {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  incidentId  String
+  incident    Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+}
+
+model TimelineEvent {
+  id          String   @id @default(cuid())
+  date        DateTime
+  description String
+  incidentId  String
+  incident    Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+}
+
+// Legislative Tracker
+model Legislation {
+  id           String   @id @default(cuid())
+  title        String
+  type         String   // "Law", "Bill", "Regulation", "Framework"
+  status       String   // "Enacted", "Proposed", "Under Review"
+  jurisdiction String
+  region       String
+  description  String
+  content      String?
+  dateProposed DateTime?
+  dateEnacted  DateTime?
+  sourceUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relations
+  categories   CategoryRelation[]
+  consultations Consultation[]
+}
+
+model Category {
+  id        String           @id @default(cuid())
+  name      String           @unique
+  legislation CategoryRelation[]
+}
+
+model CategoryRelation {
+  legislation   Legislation @relation(fields: [legislationId], references: [id], onDelete: Cascade)
+  legislationId String
+  category      Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId    String
+
+  @@id([legislationId, categoryId])
+}
+
+// Policy Consultation Hub
+model Consultation {
+  id            String   @id @default(cuid())
+  title         String
+  description   String
+  status        String   // "Open", "Closed", "Upcoming"
+  startDate     DateTime
+  endDate       DateTime
+  domain        String
+  region        String
+  legislationId String?
+  legislation   Legislation? @relation(fields: [legislationId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  comments      Comment[]
+}
+
+model Comment {
+  id             String       @id @default(cuid())
+  content        String
+  authorName     String
+  authorType     String       // "Policymaker", "Academic", "Industry", "Civil Society", "Citizen"
+  authorVerified Boolean      @default(false)
+  consultationId String
+  consultation   Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  parentId       String?      // For threaded comments
+  parent         Comment?     @relation("CommentThread", fields: [parentId], references: [id])
+  replies        Comment[]    @relation("CommentThread")
+}
+
+// User Management (Simplified for MVP)
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  role      String   // "Admin", "Editor", "Viewer"
+  createdAt DateTime @default(now())
+}
