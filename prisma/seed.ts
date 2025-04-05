@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  // Clean existing data
+  // Clean existing data (be careful with this in production)
   await prisma.comment.deleteMany();
   await prisma.consultation.deleteMany();
   await prisma.categoryRelation.deleteMany();
