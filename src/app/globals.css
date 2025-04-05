@@ -13,9 +13,8 @@ body {
   background: rgb(var(--background-rgb));
 }
 
-h1, h2, h3, h4, h5, h6 {
-  @apply font-semibold;
-}
+/* Use Tailwind's font-weight utility classes directly instead of defining our own */
+/* For example, use "font-semibold" class in your HTML/JSX rather than using h1, h2, etc. selectors */
 
 /* Additional button styles */
 .btn {
