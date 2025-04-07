@@ -98,7 +98,7 @@ export class AIService {
       
       // 5. Generate chart configuration based on the data
       const chartResult = await this.generateChartConfig(
-        queryResult,
+        queryResult as any[],
         analysisResult.chartType,
         analysisResult.chartTitle,
         analysisResult.description
@@ -123,7 +123,7 @@ export class AIService {
             title: analysisResult.chartTitle,
             description: analysisResult.description,
             chartType: analysisResult.chartType,
-            chartData: queryResult,
+            chartData: JSON.parse(JSON.stringify(queryResult)),
             chartConfig: chartResult.chartConfig,
           },
         });
