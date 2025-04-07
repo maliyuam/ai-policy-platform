@@ -1,74 +1,59 @@
 // src/lib/prisma.ts
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '@prisma/client';
 
-// PrismaClientSingleton ensures we reuse database connections
-class PrismaClientSingleton {
-  private static instance: PrismaClient;
-
-  public static getInstance(): PrismaClient {
-    if (!PrismaClientSingleton.instance) {
-      PrismaClientSingleton.instance = new PrismaClient({
-        log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-      });
-    }
-    return PrismaClientSingleton.instance;
-  }
+// Declare global variable for PrismaClient
+declare global {
+  var prisma: PrismaClient | undefined;
 }
 
-// Fallback implementation for builds without a database
-class MockPrismaClient {
-  incident = {
-    findMany: async () => [],
-    create: async () => ({}),
-    findUnique: async () => null,
-    count: async () => 0,
+// Create a simple mock client for when database is not available
+const createMockPrismaClient = () => {
+  return {
+    user: {
+      findUnique: async () => null,
+      create: async () => ({ id: 'mock-id', name: 'Mock User', email: 'mock@example.com' }),
+      upsert: async () => ({ id: 'mock-id', name: 'Mock User', email: 'mock@example.com' }),
+    },
+    incident: {
+      findMany: async () => [],
+      count: async () => 0,
+    },
+    legislation: {
+      findMany: async () => [],
+      count: async () => 0,
+    },
+    consultation: {
+      findMany: async () => [],
+      count: async () => 0,
+    },
+    category: {
+      findMany: async () => [],
+    },
+    $connect: async () => {},
+    $disconnect: async () => {},
+  } as unknown as PrismaClient;
+};
+
+// Initialize PrismaClient (or use global instance in development)
+export const prisma = global.prisma || (() => {
+  // Check if DATABASE_URL is defined
+  if (!process.env.DATABASE_URL) {
+    console.warn('DATABASE_URL not found. Using mock PrismaClient');
+    return createMockPrismaClient();
   }
   
-  legislation = {
-    findMany: async () => [],
-    create: async () => ({}),
-    findUnique: async () => null,
-    count: async () => 0,
+  try {
+    const client = new PrismaClient({
+      log: ['error'],
+    });
+    return client;
+  } catch (error) {
+    console.error('Failed to initialize PrismaClient:', error);
+    return createMockPrismaClient();
   }
-  
-  consultation = {
-    findMany: async () => [],
-    create: async () => ({}),
-    findUnique: async () => null,
-    count: async () => 0,
-  }
-  
-  category = {
-    findMany: async () => [],
-    create: async () => ({}),
-  }
-  
-  user = {
-    findMany: async () => [],
-    create: async () => ({}),
-    findUnique: async () => null,
-    upsert: async () => ({}),
-  }
-  
-  $queryRaw: async () => [],
-  $disconnect: async () => {},
+})();
+
+// Save to global object in development to prevent multiple instances
+if (process.env.NODE_ENV !== 'production') {
+  global.prisma = prisma;
 }
-
-// For faster testing, use this flag to force mock mode
-const FORCE_MOCK = false;
-
-// Check if we have a valid database connection
-const hasDatabaseUrl = !!process.env.DATABASE_URL && !FORCE_MOCK;
-
-// Global type for Prisma
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
-
-// Export the appropriate client
-export const prisma = globalForPrisma.prisma || (
-  hasDatabaseUrl 
-    ? PrismaClientSingleton.getInstance()
-    : new MockPrismaClient() as unknown as PrismaClient
-);
-
-// Set the prisma instance on the global object in development
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
