@@ -1,48 +1,74 @@
 // src/lib/prisma.ts
 import { PrismaClient } from '@prisma/client'
 
-// Create a singleton Prisma instance
-const globalForPrisma = global as unknown as { prisma: PrismaClient }
+// PrismaClientSingleton ensures we reuse database connections
+class PrismaClientSingleton {
+  private static instance: PrismaClient;
 
-// Create a mock PrismaClient if we're in a build environment without a database
+  public static getInstance(): PrismaClient {
+    if (!PrismaClientSingleton.instance) {
+      PrismaClientSingleton.instance = new PrismaClient({
+        log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+      });
+    }
+    return PrismaClientSingleton.instance;
+  }
+}
+
+// Fallback implementation for builds without a database
 class MockPrismaClient {
   incident = {
     findMany: async () => [],
     create: async () => ({}),
     findUnique: async () => null,
+    count: async () => 0,
   }
+  
   legislation = {
     findMany: async () => [],
     create: async () => ({}),
     findUnique: async () => null,
+    count: async () => 0,
   }
+  
   consultation = {
     findMany: async () => [],
     create: async () => ({}),
     findUnique: async () => null,
+    count: async () => 0,
   }
+  
   category = {
     findMany: async () => [],
     create: async () => ({}),
   }
+  
   user = {
     findMany: async () => [],
     create: async () => ({}),
+    findUnique: async () => null,
+    upsert: async () => ({}),
   }
-  // Add other models as needed
+  
+  $queryRaw: async () => [],
+  $disconnect: async () => {},
 }
 
-// Detect if we have a valid database connection string
-const hasDatabaseUrl = !!process.env.DATABASE_URL
+// For faster testing, use this flag to force mock mode
+const FORCE_MOCK = false;
 
-// Create the client
+// Check if we have a valid database connection
+const hasDatabaseUrl = !!process.env.DATABASE_URL && !FORCE_MOCK;
+
+// Global type for Prisma
+const globalForPrisma = global as unknown as { prisma: PrismaClient };
+
+// Export the appropriate client
 export const prisma = globalForPrisma.prisma || (
   hasDatabaseUrl 
-    ? new PrismaClient({
-        log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-      })
+    ? PrismaClientSingleton.getInstance()
     : new MockPrismaClient() as unknown as PrismaClient
-)
+);
 
-// Set the Prisma instance to the global object in development
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+// Set the prisma instance on the global object in development
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;

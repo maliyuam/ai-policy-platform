@@ -8,6 +8,55 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Auth Models
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  hashedPassword String?
+  role          String    @default("User") // 'Admin', 'Editor', 'User'
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
 // AI Incidents Repository
 model Incident {
   id                String   @id @default(cuid())
@@ -54,7 +103,7 @@ model Legislation {
   jurisdiction String
   region       String
   description  String
-  content      String?
+  content      String?  @db.Text
   dateProposed DateTime?
   dateEnacted  DateTime?
   sourceUrl    String?
@@ -85,7 +134,7 @@ model CategoryRelation {
 model Consultation {
   id            String   @id @default(cuid())
   title         String
-  description   String
+  description   String   @db.Text
   status        String   // "Open", "Closed", "Upcoming"
   startDate     DateTime
   endDate       DateTime
@@ -102,7 +151,7 @@ model Consultation {
 
 model Comment {
   id             String       @id @default(cuid())
-  content        String
+  content        String       @db.Text
   authorName     String
   authorType     String       // "Policymaker", "Academic", "Industry", "Civil Society", "Citizen"
   authorVerified Boolean      @default(false)
@@ -112,13 +161,66 @@ model Comment {
   parentId       String?      // For threaded comments
   parent         Comment?     @relation("CommentThread", fields: [parentId], references: [id])
   replies        Comment[]    @relation("CommentThread")
+  userId         String?      // Optional link to a user account
 }
 
-// User Management (Simplified for MVP)
-model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  role      String   // "Admin", "Editor", "Viewer"
-  createdAt DateTime @default(now())
+// Data Scraping & Processing
+model ScrapedSource {
+  id          String   @id @default(cuid())
+  url         String   @unique
+  name        String
+  lastScraped DateTime?
+  status      String   // "Pending", "Processing", "Completed", "Error"
+  errorMessage String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  dataPoints  ScrapedDataPoint[]
+}
+
+model ScrapedDataPoint {
+  id          String   @id @default(cuid())
+  sourceId    String
+  dataType    String   // "Legislation", "Incident", "Consultation", etc.
+  rawData     Json
+  processed   Boolean  @default(false)
+  processedId String?  // ID of the processed item in its respective table
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  source      ScrapedSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+}
+
+// AI-powered Insights
+model SavedQuery {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  prompt      String   @db.Text
+  parameters  Json?
+  resultType  String   // "Chart", "Table", "Text", etc.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  favorite    Boolean  @default(false)
+  public      Boolean  @default(false)
+  
+  // Relations
+  visualizations Visualization[]
+}
+
+model Visualization {
+  id          String   @id @default(cuid())
+  queryId     String
+  title       String
+  description String?
+  chartType   String   // "Bar", "Line", "Pie", etc.
+  chartData   Json
+  chartConfig Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  query       SavedQuery @relation(fields: [queryId], references: [id], onDelete: Cascade)
 }
